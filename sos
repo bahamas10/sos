@@ -45,7 +45,7 @@ var usage = [
 var execfuncs = [
   {func: summary,      tag: 'summary', deps: ['devices', 'zonename', 'uname', 'vms']},
   {func: zpool_status, tag: 'checks', title: 'Zpool Status'},
-  {func: disk_space,   tag: 'checks', title: 'Disk Space'},
+  {func: disk_usage,   tag: 'checks', title: 'Disk Space'},
   {func: smf_status,   tag: 'checks', title: 'SMF Status'},
   {func: memory_usage, tag: 'checks', title: 'Memory Usage', deps: ['zonename']},
   {func: kernel_age,   tag: 'checks', title: 'Kernel Age',   deps: ['uname']},
@@ -237,7 +237,7 @@ function zpool_status(cb) {
 }
 
 // disk space
-function disk_space(cb) {
+function disk_usage(cb) {
   var warn = opts.warning_disk_usage || 80;
   var crit = opts.critical_disk_usage || 90;
   var msg = 'ok';
