@@ -1,0 +1,583 @@
+#!/usr/node/bin/node
+/**
+ * SmartOS Summary
+ *
+ * Give a summary of the current SmartOS machine.
+ * Embedded in this script are a series of Nagios
+ * style scripts as well that can be invoked directly.
+ *
+ * Author: Dave Eddy <dave@daveeddy.com>
+ * Date: April 16, 2015
+ * License: MIT
+ */
+
+var assert = require('assert');
+var execFile = require('child_process').execFile;
+var os = require('os');
+var util = require('util');
+
+var VM = require('/usr/vm/node_modules/VM');
+var getopt = require('/usr/node/node_modules/getopt');
+var sprintf = require('/usr/node/node_modules/sprintf').sprintf;
+function printf() {
+  process.stdout.write(sprintf.apply(this, arguments));
+}
+
+var usage = [
+  'Usage: sos [options] [checks]',
+  '',
+  'SOS - SmartOS Summary',
+  '  gather and report information about a SmartOS global zone,',
+  '  as well as run multiple bundlede Nagios style checks',
+  '',
+  'Examples',
+  '  $ sos                           run every check and report everything',
+  '  $ sos zpool_status              only run the "zpool_status" check (nagios style)',
+  '  $ sos zpool_status smf_status   run both "zpool_status" and "smf_status" checks',
+  '  $ sos checks                    run all Nagios style checks',
+  '',
+  'Options',
+  '  -h, --help                      print this message and exit',
+  '  -l, --list                      list all possible checks and exit',
+].join('\n');
+
+// funcs to call when executing
+var execfuncs = [
+  {func: summary,      tag: 'summary', deps: ['devices', 'zonename', 'uname', 'vms']},
+  {func: zpool_status, tag: 'checks', title: 'Zpool Status'},
+  {func: disk_space,   tag: 'checks', title: 'Disk Space'},
+  {func: smf_status,   tag: 'checks', title: 'SMF Status'},
+  {func: memory_usage, tag: 'checks', title: 'Memory Usage', deps: ['zonename']},
+  {func: kernel_age,   tag: 'checks', title: 'Kernel Age',   deps: ['uname']},
+  {func: hard_errors,  tag: 'checks', title: 'Hard Errors',  deps: ['devices']},
+];
+
+// funcs to call for resolving dependencies
+var depfuncs = {
+  devices: getdevices,
+  zonename: getzonename,
+  vms: getvms,
+  uname: getuname,
+};
+
+// global variable with dependencies attached to it
+var deps = {};
+
+/***********************
+ * convenience functions
+ ***********************/
+
+// return a human readable timestamp given a number representing seconds
+// or a Date object
+function human(seconds, suffix) {
+  if (seconds instanceof Date)
+    seconds = Math.round((Date.now() - seconds) / 1000);
+  if (suffix === undefined)
+    suffix = seconds < 0 ? ' from now' : ' ago';
+  seconds = Math.abs(seconds);
+
+  var times = [
+    seconds / 60 / 60 / 24 / 365, // years
+    seconds / 60 / 60 / 24 / 30,  // months
+    seconds / 60 / 60 / 24,       // days
+    seconds / 60 / 60,            // hours
+    seconds / 60,                 // minutes
+    seconds                       // seconds
+  ];
+  var names = ['year', 'month', 'day', 'hour', 'minute', 'second'];
+
+  for (var i = 0; i < names.length; i++) {
+    var time = Math.floor(times[i]);
+    if (time > 1)
+      return util.format('%d %ss%s', time, names[i], suffix);
+    else if (time === 1)
+      return util.format('%d %s%s', time, names[i], suffix);
+  }
+  return util.format('0 seconds%s', suffix);
+}
+
+// convert bytes to kb, mb, gb, etc.
+function prettybytes(bytes, num) {
+  num = num || 1024;
+  if (Math.floor(bytes / num / num / num / num))
+    return util.format('%d TB', (bytes / num / num / num / num).toFixed(3));
+  else if (Math.floor(bytes / num / num / num))
+    return util.format('%d GB', (bytes / num / num / num).toFixed(3));
+  else if (Math.floor(bytes / num / num))
+    return util.format('%d MB', (bytes / num / num).toFixed(3));
+  else if (Math.floor(bytes / num))
+    return util.format('%d KB', (bytes / num).toFixed(3));
+  else
+    return util.format('%d B', bytes);
+}
+
+/* parse output from `kstat -p ...`
+ *
+ * returns [{
+ *   module: 'foo',
+ *   instance: 'bar',
+ *   name: 'baz',
+ *   statistic: 'bat',
+ *   value: '5', # not casted
+ * }, ...]
+ */
+function parsekstat(output) {
+  return output.trim().split('\n').map(function(line) {
+    var _s = line.trim().split(/[\t:]/);
+    return {
+      module: _s[0],
+      instance: _s[1],
+      name: _s[2],
+      statistic: _s[3],
+      value: _s[4]
+    }
+  });
+}
+
+/***********************
+ * exec functions
+ ***********************/
+
+// print a summary
+function summary(cb) {
+  var keys;
+
+  // hostname
+  console.log('Hostname: %s', os.hostname());
+
+  // zonename
+  console.log('Zonename: %s', deps.zonename);
+
+  // kernel (uname -v)
+  console.log('Kernel: %s', deps.uname);
+
+  // uptime
+  var uptime = os.uptime();
+  var daysold = Math.floor(uptime / 60 / 60 / 24);
+  console.log('Uptime: %s (%d days)', human(uptime, ''), daysold);
+
+  // memory
+  console.log('Memory: %s', prettybytes(os.totalmem()));
+
+  // cpus
+  var cpus = {};
+  var count = 0;
+  os.cpus().forEach(function(cpu) {
+    var name = sprintf('%s (%d MHz)', cpu.model, cpu.speed);
+    cpus[name] = cpus[name] || 0;
+    cpus[name]++;
+    count++;
+  });
+  console.log('Processors: %d', count);
+  Object.keys(cpus).forEach(function(model) {
+    console.log('  - %d x %s', cpus[model], model);
+  });
+  console.log();
+
+  // interfaces
+  var interfaces = os.networkInterfaces();
+  keys = Object.keys(interfaces);
+  console.log('Interfaces: %d', keys.length);
+  keys.forEach(function(interface) {
+    var a = interfaces[interface].map(function(o) { return o.address; });
+    printf('  - %-8s %s\n', interface, a.join(', '));
+  });
+  console.log();
+
+  // devices (disks)
+  keys = Object.keys(deps.devices);
+  console.log('Devices: %d', keys.length);
+  keys.forEach(function(device) {
+    var o = deps.devices[device];
+    printf('  - %-8s %-5s %-20s %-17s %-10s (%s)\n',
+        device,
+        o['Vendor'] || '-',
+        o['Product'] || '-',
+        o['Serial No'] || '-',
+        prettybytes(o['Size'], 1000),
+        prettybytes(o['Size']));
+  });
+  console.log();
+
+  // zones
+  var running = 0;
+  var total = 0;
+  deps.vms.forEach(function(vm) {
+    if (vm.state === 'running')
+      running++;
+    total++;
+  });
+  console.log('Zones: %d zones running - %d zones total', running, total);
+  deps.vms.forEach(function(vm) {
+    var started = new Date(vm.boot_timestamp);
+    printf('  - %-8s %-17s %-7s %6d MB %5d GB %12s',
+        vm.brand, vm.alias, vm.state, vm.max_physical_memory, vm.quota,
+        vm.nics.map(function(nic) { return nic.ip; }).join(','));
+    if (started instanceof Date && isFinite(started))
+      printf('   (up %s)', human(started, ''));
+    console.log();
+  });
+
+  cb(0);
+}
+
+// zpool status
+function zpool_status(cb) {
+  execFile('zpool', ['status', '-x'], function(err, stdout, stderr) {
+    var trimmed = stdout && stdout.trim();
+    if (!err && !stderr && trimmed === 'all pools are healthy') {
+      console.log('ok: %s', trimmed);
+      cb(0);
+      return;
+    }
+
+    console.log('critical: run `zpool status -xv`');
+    cb(2);
+  });
+}
+
+// disk space
+function disk_space(cb) {
+  var warn = opts.warning_disk_usage || 80;
+  var crit = opts.critical_disk_usage || 90;
+  var msg = 'ok';
+  var exitcode = 0;
+  execFile('zpool', ['list', '-Ho', 'name,cap'], function(err, stdout, stderr) {
+    if (err) {
+      console.log('unknown: fail to run zpool(1M) - %s', err.message);
+      cb(3);
+      return;
+    }
+
+    var pools = [];
+    stdout.trim().split('\n').forEach(function(line) {
+      var _s = line.split('\t');
+      var name = _s[0];
+      var perc = _s[1];
+      var num = parseInt(perc, 10);
+      pools.push(sprintf('%s %s', name, perc));
+      if (exitcode < 2 && num >= crit) {
+        msg = 'critical';
+        exitcode = 2;
+      } else if (exitcode < 1 && num >= warn) {
+        msg = 'warning';
+        exitcode = 1;
+      }
+    });
+    console.log('%s: %s', msg, pools.join(', '));
+    cb(exitcode);
+  });
+}
+
+
+// smf status
+function smf_status(cb) {
+  execFile('svcs', ['-Ho', 'state,fmri'], function(err, stdout, stderr) {
+    if (err || stderr) {
+      console.log('critical: svcs %s', err ? err.message : stderr);
+      cb(2);
+      return;
+    }
+
+    var maint = [];
+    stdout.trim().split('\n').forEach(function(line) {
+      var _s = line.split(/\s+/);
+      var state = _s[0];
+      var fmri = _s[1];
+      if (state === 'maintenance')
+        maint.push(fmri);
+    });
+
+    if (maint.length) {
+      console.log('critical: services in maintenance mode - %s', maint.join(', '));
+      cb(2);
+    } else {
+      console.log('ok: all services are online');
+      cb(0);
+    }
+  });
+}
+
+// kernel age
+function kernel_age(cb) {
+  var crit = opts.critical_kernel_age || 360;
+  var warn = opts.warning_kernel_age || 180;
+
+  // parse the kernel name
+  var kernel = deps.uname;
+  var date;
+  try {
+    date = new Date(kernel.match(/_(\d{4})(\d{2})(\d{2})/).slice(1).join('-'));
+    assert(date instanceof Date && isFinite(date));
+  } catch(e) {
+    console.log('unknown: failed to parse kernel - "%s" - %s', kernel, e.message);
+    cb(3);
+  }
+
+  // calculate how old the kernel is
+  var daysold = Math.floor(((new Date()) - date) / 1000 / 60 / 60 / 24);
+  var relative = human(date, ' old');
+
+  var code = 0;
+  var msg = 'ok';
+  if (daysold >= crit) {
+    code = 2;
+    msg = 'critical';
+  } else if (daysold >= warn) {
+    code = 1;
+    msg = 'warning';
+  }
+
+  console.log('%s: %s - %s (%d days)', msg, kernel, relative, daysold);
+  cb(code);
+}
+
+// check for hard errors on devices
+function hard_errors(cb) {
+  // we have hard errors!
+  var harderrors = [];
+  Object.keys(deps.devices).forEach(function(device) {
+    var o = deps.devices[device];
+    var he = parseInt(o['Hard Errors'], 10);
+    if (he > 0)
+      harderrors.push(device);
+  });
+
+  if (harderrors.length) {
+    console.log('critical: hard errors found on devices - %s', harderrors.push(', '));
+    cb(2);
+  } else {
+    console.log('ok: no hard errors found');
+    cb(0);
+  }
+}
+
+// memory usage
+function memory_usage(cb) {
+  var warn = opts.warning_memory_usage || 80;
+  var crit = opts.critical_memory_usage || 90;
+  execFile('kstat', ['-pc', 'zone_memory_cap', ':::rss', ':::physcap'], function(err, stdout, stderr) {
+    if (err) {
+      console.log('unknown: failed to call kstat(1M) - %s', err.message);
+      cb(3);
+    }
+    var rss = 0;
+    var max = 0;
+    parsekstat(stdout).forEach(function(o) {
+      if (deps.zonename === 'global' || deps.zonename === o.name) {
+        switch (o.statistic) {
+          case 'rss': rss += parseInt(o.value, 10); break;
+          case 'physcap': max += parseInt(o.value, 10); break;
+        }
+      }
+      if (deps.zonename === 'global')
+        max = os.totalmem();
+    });
+
+    var percentage = ((rss * 100) / max);
+    var code = 0;
+    var msg = 'ok';
+    if (percentage >= crit) {
+      msg = 'critical';
+      code = 2;
+    } else if (percentage >= warn) {
+      msg = 'warning';
+      code = 1;
+    }
+    console.log('%s: %s / %s (%d%%)',
+        msg, prettybytes(rss), prettybytes(max), percentage.toFixed(2));
+    cb(code);
+  });
+}
+
+/***********************
+ * dependency functions
+ ***********************/
+
+// get devices from kstat dependency func
+function getdevices(cb) {
+  execFile('kstat', ['-pc', 'device_error'], function(err, stdout, stderr) {
+    if (err || stderr)
+      return cb(err || new Error(stderr));
+
+    var devices = {};
+    // build devices object
+    parsekstat(stdout).forEach(function(o) {
+      var device = o.name.split(',')[0];
+
+      // store the info
+      devices[device] = devices[device] || {};
+      devices[device][o.statistic] = o.value;
+    });
+
+    cb(null, devices);
+  });
+}
+
+// get vms dependency func
+function getvms(cb) {
+  var fields = [
+    'alias',
+    'boot_timestamp',
+    'brand',
+    'max_physical_memory',
+    'nics',
+    'quota',
+    'state',
+  ];
+  VM.lookup({}, {fields: fields}, function(err, vms) {
+    if (err)
+      return cb(err);
+    vms.sort(function(a, b) {
+      // sort by brand, then state, then ram, then alias
+      var props = ['brand', 'state', 'max_physical_memory', 'alias'];
+      for (var i = 0; i < props.length; i++) {
+        var prop = props[i];
+        if (a[prop] > b[prop])
+          return 1;
+        if (a[prop] < b[prop])
+          return -1;
+      }
+      return 0;
+    });
+    cb(null, vms);
+  });
+}
+
+// get zonename
+function getzonename(cb) {
+  execFile('zonename', function(err, stdout, stderr) {
+    if (err || stderr)
+      return cb(err || new Error(stderr));
+    cb(null, stdout.trim());
+  });
+}
+
+// get uname -v
+function getuname(cb) {
+  execFile('uname', ['-v'], function(err, stdout, stderr) {
+    if (err || stderr)
+      return cb(err || new Error(stderr));
+    cb(null, stdout.trim());
+  });
+}
+
+/***********************
+ * main
+ ***********************/
+// command line arguments
+var opts = {
+  warning_memory_usage: 80,
+  critical_memory_usage: 90,
+  warning_disk_usage: 80,
+  critical_disk_usage: 90,
+  warning_kernel_age: 180,
+  critical_kernel_age: 360,
+};
+
+var options = [
+  'h(help)',
+  'l(list)',
+  '1:(warning-memory-usage)',
+  '2:(critical-memory-usage)',
+  '3:(warning-disk-usage)',
+  '4:(critical-disk-usage)',
+  '5:(warning-kernel-age)',
+  '6:(critical-kernel-age)',
+].join('');
+var parser = new getopt.BasicParser(options, process.argv);
+var option;
+while ((option = parser.getopt()) !== undefined) {
+  switch (option.option) {
+    case 'h': console.log(usage); process.exit(0);
+    case 'l':
+      var funcs = execfuncs.map(function(o) {
+        return o.func.name;
+      });
+      console.log(funcs.join('\n'));
+      process.exit(0);
+    case '1': opts.warning_memory_usage = parseInt(option.optarg, 10); break;
+    case '2': opts.critical_memory_usage = parseInt(option.optarg, 10); break;
+    case '3': opts.warning_disk_usage = parseInt(option.optarg, 10); break;
+    case '4': opts.critical_disk_usage = parseInt(option.optarg, 10); break;
+    case '5': opts.warning_kernel_age = parseInt(option.optarg, 10); break;
+    case '6': opts.critical_kernel_age = parseInt(option.optarg, 10); break;
+    default: console.error(usage); process.exit(1);
+  }
+}
+
+var args = process.argv.slice(parser.optind());
+
+// get array of functions to call based on arguments
+var funcs = execfuncs.filter(function(o) {
+  return !args.length ||
+      args.indexOf(o.func.name) >= 0 ||
+      args.indexOf(o.tag) >= 0;
+});
+
+// figure out the deps needed
+var depsneeded = [];
+funcs.forEach(function(o) {
+  (o.deps || []).forEach(function(dep) {
+    if (depsneeded.indexOf(dep) < 0)
+      depsneeded.push(dep);
+  });
+});
+
+// load the deps in parallel
+var i = 0;
+if (depsneeded.length) {
+  depsneeded.forEach(function(dep) {
+    i++;
+
+    // grab the function to call
+    var depfunc = depfuncs[dep];
+    if (typeof depfunc !== 'function')
+      throw new Error(dep + ': not a dependency function');
+
+    // call it and cache the output
+    depfuncs[dep](function(err, data) {
+      if (err)
+        throw err;
+      deps[dep] = data;
+      check();
+    });
+  });
+
+  function check() {
+    if (--i === 0)
+      go();
+  }
+} else {
+  go();
+}
+
+// called to start the chain of functions in `funcs`
+// after all deps are ready
+var exitcode = 0;
+function go(code) {
+  exitcode += code || 0;
+  var o = funcs[i++];
+
+  // EOList
+  if (!o)
+    return;
+
+  // compare against arguments and skip accordingly
+  if (args.length &&
+      args.indexOf(o.func.name) === -1 &&
+      args.indexOf(o.tag) === -1)
+      return process.nextTick(go);
+
+  // print the title if it is specified
+  if (o.title && args.length !== 1)
+    printf('\n%-20s\n - ', o.title + ':');
+
+  // start the func
+  o.func(go);
+}
+
+// called when program is done
+process.on('exit', function() {
+  process.exit(exitcode);
+});
