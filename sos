@@ -344,7 +344,7 @@ function hard_errors(cb) {
   });
 
   if (harderrors.length) {
-    console.log('critical: hard errors found on devices - %s', harderrors.push(', '));
+    console.log('critical: hard errors found on devices - %s', harderrors.join(', '));
     cb(2);
   } else {
     console.log('ok: no hard errors found');
