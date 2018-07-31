@@ -12,6 +12,7 @@
  */
 
 var cp = require('child_process');
+var fs = require('fs');
 var os = require('os');
 var util = require('util');
 
@@ -418,6 +419,97 @@ vasync.pipeline({arg: {}, funcs: [
         });
     },
 
+    function getProduct(arg, cb) {
+        fs.readFile('/etc/product', {encoding: 'utf8'}, function (err, body) {
+            if (err) {
+                // ignore this
+                cb();
+                return;
+            }
+
+            var data = {};
+
+            body.trim().split('\n').forEach(function (line) {
+                var m = line.match(/^([^:]+): (.*)$/);
+                if (!m) {
+                    return;
+                }
+                var key = m[1];
+                var value = m[2];
+                data[key] = value;
+            });
+
+            arg.product = data;
+            cb();
+        });
+    },
+
+    function getPkgin(arg, cb) {
+        var m;
+
+        fs.readFile('/opt/local/etc/pkgin/repositories.conf',
+            {encoding: 'utf8'}, function (err, body) {
+
+            // ignore error
+            body = body || '';
+
+            var url = body.trim().split('\n').filter(function (line) {
+                return line && line[0] !== '#';
+            })[0];
+            var repo;
+
+            if (url) {
+                m = url.match(/\/([0-9]{4}Q[1-4])\//);
+                if (m) {
+                    repo = m[1];
+                }
+            }
+
+            exec(['pkgin', 'stats'], function (err, stdout) {
+                // ignore error here
+                stdout = stdout || '';
+                var installedPackages;
+                var diskSpaceOccupied;
+
+                try {
+                    installedPackages = parseInt(
+                        stdout.match(/Installed packages: ([0-9]+)/)[1], 10);
+                } catch (e) {}
+
+                try {
+                    diskSpaceOccupied =
+                        stdout.match(/Disk space occupied: (.*)/)[1];
+                } catch (e) {}
+
+                // break here if all of this failed
+                if (repo === undefined &&
+                    installedPackages === undefined &&
+                    diskSpaceOccupied === undefined) {
+
+                    cb();
+                    return;
+                }
+
+                var output = [];
+                if (installedPackages) {
+                    output.push(sprintf('%d installed', installedPackages));
+                }
+                if (diskSpaceOccupied) {
+                    output.push(sprintf('(%s)', diskSpaceOccupied));
+                }
+                if (repo) {
+                    output.push(sprintf('pkgin %s', repo));;
+                } else {
+                    output.push('pkgin');
+                }
+
+                arg.pkgin = output.join(' ');
+
+                cb();
+            });
+        });
+    },
+
     function getSvcs(arg, cb) {
         exec(['svcs', '-Ho', 'state'], function (err, stdout, stderr) {
             if (err || stderr) {
@@ -541,6 +633,15 @@ vasync.pipeline({arg: {}, funcs: [
         // SMF
         o.SMF = arg.svcs;
 
+        // Product
+        if (arg.product && arg.product.Image) {
+            o.Image = arg.product.Image;
+        }
+
+        if (arg.pkgin) {
+            o.Packages = arg.pkgin;
+        }
+
         // VMs
         if (arg.vms) {
             var running = arg.vms.filter(function (vm) {
@@ -549,8 +650,6 @@ vasync.pipeline({arg: {}, funcs: [
             o.VMs = sprintf('%d running (%d total)',
                 running.length,
                 arg.vms.length);
-        } else {
-            o.VMs = 'n/a';
         }
 
         // ZFS
@@ -561,8 +660,6 @@ vasync.pipeline({arg: {}, funcs: [
                 pools.push(sprintf('%s %d%', zpool, usage));
             });
             o['Zpool Usage'] = pools.join(', ');
-        } else {
-            o['Zpool Usage'] = 'n/a';
         }
 
         // Print the data
@@ -578,6 +675,11 @@ vasync.pipeline({arg: {}, funcs: [
                 printLine(s);
             });
         });
+
+        // ensure that the full logo has been printed
+        while (_logoIndex < LOGO.length) {
+            printLine('');
+        }
 
         console.log();
 
