@@ -337,6 +337,12 @@ vasync.pipeline({arg: {}, funcs: [
         exec(['zpool', 'list', '-Ho', 'name,cap'],
             function (err, stdout) {
 
+            if (err && arg.zonename !== 'global') {
+                // this is ok
+                cb();
+                return;
+            }
+
             if (err) {
                 cb(err);
                 return;
@@ -362,11 +368,16 @@ vasync.pipeline({arg: {}, funcs: [
 
         exec(['zpool', 'status', '-x'], function (err, stdout, stderr) {
             var trimmed = stdout && stdout.trim();
-            if (!err && !stderr && trimmed === 'all pools are healthy') {
-                o.message = trimmed;
-                o.status = 'ok';
-                cb();
-                return;
+            if (!err && !stderr) {
+                if (trimmed === 'all pools are healthy' ||
+                    (arg.zonename !== 'global' &&
+                    trimmed === 'no pools available')) {
+
+                    o.message = trimmed;
+                    o.status = 'ok';
+                    cb();
+                    return;
+                }
             }
 
             o.status = 'critical';
@@ -388,16 +399,14 @@ vasync.pipeline({arg: {}, funcs: [
             var max = 0;
 
             parsekstat(stdout).forEach(function (o) {
-                if (arg.zonename === 'global' || arg.zonename === o.name) {
-                    switch (o.statistic) {
-                    case 'rss': rss += parseInt(o.value, 10); break;
-                    case 'physcap': max += parseInt(o.value, 10); break;
-                    }
-                }
-                if (arg.zonename === 'global') {
-                    max = os.totalmem();
+                switch (o.statistic) {
+                case 'rss': rss += parseInt(o.value, 10); break;
+                case 'physcap': max += parseInt(o.value, 10); break;
                 }
             });
+            if (arg.zonename === 'global') {
+                max = os.totalmem();
+            }
 
             var percentage = ((rss * 100) / max);
             arg.memory = {
@@ -433,6 +442,11 @@ vasync.pipeline({arg: {}, funcs: [
     },
 
     function getVmadm(arg, cb) {
+        if (arg.zonename !== 'global') {
+            cb();
+            return;
+        }
+
         var fields = [
             'alias',
             'boot_timestamp',
@@ -528,20 +542,28 @@ vasync.pipeline({arg: {}, funcs: [
         o.SMF = arg.svcs;
 
         // VMs
-        var running = arg.vms.filter(function (vm) {
-            return vm.state === 'running';
-        });
-        o.VMs = sprintf('%d running (%d total)',
-            running.length,
-            arg.vms.length);
+        if (arg.vms) {
+            var running = arg.vms.filter(function (vm) {
+                return vm.state === 'running';
+            });
+            o.VMs = sprintf('%d running (%d total)',
+                running.length,
+                arg.vms.length);
+        } else {
+            o.VMs = 'n/a';
+        }
 
         // ZFS
-        var pools = [];
-        Object.keys(arg.zpoolUsage).forEach(function (zpool) {
-            var usage = arg.zpoolUsage[zpool];
-            pools.push(sprintf('%s %d%', zpool, usage));
-        });
-        o['Zpool Usage'] = pools.join(', ');
+        if (arg.zpoolUsage) {
+            var pools = [];
+            Object.keys(arg.zpoolUsage).forEach(function (zpool) {
+                var usage = arg.zpoolUsage[zpool];
+                pools.push(sprintf('%s %d%', zpool, usage));
+            });
+            o['Zpool Usage'] = pools.join(', ');
+        } else {
+            o['Zpool Usage'] = 'n/a';
+        }
 
         // Print the data
         Object.keys(o).forEach(function (key) {
@@ -638,35 +660,38 @@ vasync.pipeline({arg: {}, funcs: [
         console.log();
 
         // VMs
-        var running = 0;
-        var total = 0;
-        arg.vms.forEach(function (vm) {
-            if (vm.state === 'running') {
-                running++;
-            }
-            total++;
-        });
-        console.log('%s %d running (%d total)',
-            boldAndColor('VMs:'), running, total);
+        if (arg.vms) {
+            var running = 0;
+            var total = 0;
+            arg.vms.forEach(function (vm) {
+                if (vm.state === 'running') {
+                    running++;
+                }
+                total++;
+            });
+            console.log('%s %d running (%d total)',
+                boldAndColor('VMs:'), running, total);
 
-        arg.vms.forEach(function (vm) {
-            var started = new Date(vm.boot_timestamp);
+            arg.vms.forEach(function (vm) {
+                var started = new Date(vm.boot_timestamp);
 
-            printf('  %s %-8s %-17s %-7s %6d MB %5d GB %12s',
-                boldAndColor('-'),
-                vm.brand,
-                vm.alias,
-                vm.state,
-                vm.max_physical_memory,
-                vm.quota,
-                vm.nics.map(function (nic) { return nic.ip; }).join(','));
+                printf('  %s %-8s %-17s %-7s %6d MB %5d GB %12s',
+                    boldAndColor('-'),
+                    vm.brand,
+                    vm.alias,
+                    vm.state,
+                    vm.max_physical_memory,
+                    vm.quota,
+                    vm.nics.map(function (nic) { return nic.ip; }).join(','));
 
-            if (started instanceof Date && isFinite(started)) {
-                printf('   (up %s)', human(started, ''));
-            }
+                if (started instanceof Date && isFinite(started)) {
+                    printf('   (up %s)', human(started, ''));
+                }
 
+                console.log();
+            });
             console.log();
-        });
+        }
 
         // Hard Errors
         var harderrors = [];
@@ -677,7 +702,6 @@ vasync.pipeline({arg: {}, funcs: [
                 harderrors.push(device);
             }
         });
-        console.log();
         console.log(boldAndColor('Hard Errors:'));
         if (harderrors.length > 0) {
             console.log(' - critical: hard errors found on devices - %s',
@@ -689,7 +713,7 @@ vasync.pipeline({arg: {}, funcs: [
         // Zpool Status
         console.log();
         console.log(boldAndColor('Zpool Status:'));
-        console.log(' - %s %s',
+        console.log(' - %s: %s',
             arg.zpoolStatus.status,
             arg.zpoolStatus.message);
 
