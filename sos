@@ -90,21 +90,19 @@ LOGO.forEach(function (line, i) {
 
 // Usage message
 var USAGE = [
-    'Usage: sos [options] [checks]',
+    'Usage: sos [--color=auto|yes|no] [--full] [--help]',
     '',
     'SOS - SmartOS Summary',
-    '  gather and report information about a SmartOS zone',
+    '  Gather and display information about a SmartOS installation',
     '',
     'Options',
     '  -c, --color=auto|no|yes  enable/disable color output, defaults to auto',
-    '  -h, --help               print this message and exit',
     '  -f, --full               additional output',
+    '  -h, --help               print this message and exit',
 ].join('\n');
 
 // Disable color output
 function disableColors() {
-    var i;
-
     Object.keys(COLORS).forEach(function (color) {
         COLORS[color] = '';
     });
@@ -496,7 +494,7 @@ vasync.pipeline({arg: {}, funcs: [
                     output.push(sprintf('(%s)', diskSpaceOccupied));
                 }
                 if (repo) {
-                    output.push(sprintf('pkgin %s', repo));;
+                    output.push(sprintf('pkgin %s', repo));
                 } else {
                     output.push('pkgin');
                 }
@@ -612,7 +610,7 @@ vasync.pipeline({arg: {}, funcs: [
         var daysUp = Math.floor(uptime / 60 / 60 / 24);
         o.Uptime = human(uptime, '');
         if (daysUp > 31) {
-            o.Uptime += sprintf(' (%d days)', daysUp)
+            o.Uptime += sprintf(' (%d days)', daysUp);
         }
 
         // Memory
@@ -625,7 +623,9 @@ vasync.pipeline({arg: {}, funcs: [
         o.CPU = [];
         var cpus = {};
         os.cpus().forEach(function (cpu) {
-            var name = sprintf('%s (%d MHz)', cpu.model, cpu.speed);
+            var name = sprintf('%s (%d MHz)',
+                cpu.model.replace(/\s+/g, ' '),
+                cpu.speed);
             cpus[name] = cpus[name] || 0;
             cpus[name]++;
         });
@@ -750,15 +750,15 @@ vasync.pipeline({arg: {}, funcs: [
             keys.length);
         keys.forEach(function (device) {
             var o = arg.devices[device];
-            var size = parseInt(o['Size'], 10);
+            var size = parseInt(o.Size, 10);
             if (isNaN(size)) {
                 size = -1;
             }
             printf('  %s %-8s %-5s %-20s %-17s %-10s (%s)\n',
                 boldAndColor('-'),
                 device,
-                o['Vendor'] || '-',
-                o['Product'] || '-',
+                o.Vendor || '-',
+                o.Product || '-',
                 o['Serial No'] || '-',
                 prettybytes(size, 1000),
                 prettybytes(size));
