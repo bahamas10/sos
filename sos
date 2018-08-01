@@ -609,8 +609,11 @@ vasync.pipeline({arg: {}, funcs: [
 
         // Uptime
         var uptime = os.uptime();
-        var daysold = Math.floor(uptime / 60 / 60 / 24);
-        o.Uptime = sprintf('%s (%d days)', human(uptime, ''), daysold);
+        var daysUp = Math.floor(uptime / 60 / 60 / 24);
+        o.Uptime = human(uptime, '');
+        if (daysUp > 31) {
+            o.Uptime += sprintf(' (%d days)', daysUp)
+        }
 
         // Memory
         o.Memory = sprintf('%s / %s (%d%)',
