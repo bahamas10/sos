@@ -16,11 +16,12 @@ var fs = require('fs');
 var os = require('os');
 var util = require('util');
 
-var assert = require('/usr/node/node_modules/assert-plus');
-var vasync = require('/usr/vm/node_modules/vasync');
 var VM = require('/usr/vm/node_modules/VM');
+var assert = require('/usr/node/node_modules/assert-plus');
 var getopt = require('/usr/node/node_modules/getopt');
 var sprintf = require('/usr/node/node_modules/sprintf').sprintf;
+var vasync = require('/usr/vm/node_modules/vasync');
+var zone = require('/usr/node/node_modules/zonename');
 
 // ansi coloring
 var COLORS = {
@@ -63,23 +64,28 @@ function stripAnsi(s) {
 
 // The SmartOS logo with all of its coloring and everything
 var LOGO = [
-    '\u001b[37m\u001b[1m*\u001b[31m--\u001b[0m\u001b[31m+--\u001b[37m\u001b[1m*\u001b[0m\u001b[33m--\u001b[37m\u001b[1m*\u001b[0m   ',
-    '\u001b[31m|\u001b[1m\\\u001b[0m \u001b[31m|\u001b[0m\u001b[31m\\ |\u001b[33m\\ \u001b[1m|\\\u001b[0m  ',
-    '\u001b[31m| \u001b[1m\\\u001b[0m\u001b[31m|\u001b[0m \u001b[31m\\| \u001b[33m\\\u001b[1m| \\\u001b[0m ',
-    '\u001b[31m+--\u001b[1m\u001b[37m*\u001b[31m--+\u001b[0m\u001b[33m--\u001b[1m\u001b[37m*\u001b[33m--\u001b[37m*\u001b[0m',
-    '\u001b[37m|\u001b[31m\\ |\\ |\\ \u001b[33m|\u001b[1m\\ |\u001b[0m',
-    '\u001b[37m| \u001b[31m\\| \\| \\\u001b[33m| \u001b[1m\\|\u001b[0m',
-    '\u001b[37m\u001b[1m*\u001b[0m\u001b[37m--+\u001b[31m--+\u001b[33m--+\u001b[1m--+\u001b[0m',
-    ' \u001b[37m\u001b[1m\\ |\u001b[0m\u001b[34m\\ |\\ |\u001b[1m\\ |\u001b[0m',
-    '  \u001b[37m\u001b[1m\\| \u001b[0m\u001b[34m\\| \\| \u001b[1m\\|\u001b[0m',
-    '   \u001b[37m\u001b[1m*--+\u001b[0m\u001b[34m--\u001b[37m\u001b[1m*\u001b[34m--\u001b[37m*\u001b[0m',
+    '\u001b[37m\u001b[1m*\u001b[31m--\u001b[0m\u001b[31m+--\u001b[37m\u001b[1m*\u001b[0m\u001b[33m--\u001b[37m\u001b[1m*\u001b[0m    ',
+    '\u001b[31m|\u001b[1m\\\u001b[0m \u001b[31m|\u001b[0m\u001b[31m\\ |\u001b[33m\\ \u001b[1m|\\\u001b[0m   ',
+    '\u001b[31m| \u001b[1m\\\u001b[0m\u001b[31m|\u001b[0m \u001b[31m\\| \u001b[33m\\\u001b[1m| \\\u001b[0m  ',
+    '\u001b[31m+--\u001b[1m\u001b[37m*\u001b[31m--+\u001b[0m\u001b[33m--\u001b[1m\u001b[37m*\u001b[33m--\u001b[37m*\u001b[0m ',
+    '\u001b[37m|\u001b[31m\\ |\\ |\\ \u001b[33m|\u001b[1m\\ |\u001b[0m ',
+    '\u001b[37m| \u001b[31m\\| \\| \\\u001b[33m| \u001b[1m\\|\u001b[0m ',
+    '\u001b[37m\u001b[1m*\u001b[0m\u001b[37m--+\u001b[31m--+\u001b[33m--+\u001b[1m--+\u001b[0m ',
+    ' \u001b[37m\u001b[1m\\ |\u001b[0m\u001b[34m\\ |\\ |\u001b[1m\\ |\u001b[0m ',
+    '  \u001b[37m\u001b[1m\\| \u001b[0m\u001b[34m\\| \\| \u001b[1m\\|\u001b[0m ',
+    '   \u001b[37m\u001b[1m*--+\u001b[0m\u001b[34m--\u001b[37m\u001b[1m*\u001b[34m--\u001b[37m*\u001b[0m ',
+    '\u001b[37m\u001b[1mJoyent SmartOS\u001b[0m',
 ];
 var LOGO_WIDTH = stripAnsi(LOGO[0]).length;
 
 // Ensure that each line of the logo is the same length
 LOGO.forEach(function (line, i) {
-    assert.equal(stripAnsi(line).length, LOGO_WIDTH,
-        sprintf('Logo line %d incorrect length', i));
+    var len = stripAnsi(line).length;
+    assert.equal(len, LOGO_WIDTH,
+        sprintf('Logo line %d incorrect length: wanted %d found %d',
+            i,
+            LOGO_WIDTH,
+            len));
 });
 
 // Usage message
@@ -108,7 +114,6 @@ function disableColors() {
     });
 }
 
-
 // Printf convenience function
 function printf() {
     process.stdout.write(sprintf.apply(this, arguments));
@@ -116,7 +121,7 @@ function printf() {
 
 // Print part of the logo and some right-justified text
 var _logoIndex = 0;
-var _padLeftLogo = 5;
+var _padLeftLogo = 4;
 var _padRightLogo = 5;
 function printLine() {
     var line = sprintf.apply(null, arguments);
@@ -311,15 +316,8 @@ vasync.pipeline({arg: {}, funcs: [
     },
 
     function getZonename(arg, cb) {
-        exec(['zonename'], function (err, stdout) {
-            if (err) {
-                cb(err);
-                return;
-            }
-
-            arg.zonename = stdout.trim();
-            cb();
-        });
+        arg.zonename = zone.getzonename();
+        cb();
     },
 
     function getUname(arg, cb) {
@@ -595,8 +593,8 @@ vasync.pipeline({arg: {}, funcs: [
         // Generic Key-Value
         var o = {};
 
-        // Zonename
-        o.Zonename = arg.zonename;
+        // OS
+        o.OS = sprintf('Joyent SmartOS (%s)', os.type());
 
         // Uname -v
         var platform = arg.uname.split('_')[1];
@@ -604,7 +602,10 @@ vasync.pipeline({arg: {}, funcs: [
             '$1/$2/$3 $4:$5:$6');
         var date = new Date(s);
         assert(isFinite(date), 'invalid date');
-        o.Kernel = sprintf('%s (%s)', platform, human(date));
+        o.Kernel = sprintf('%s (%s)', platform, human(date, ' old'));
+
+        // Zonename
+        o.Zonename = arg.zonename;
 
         // Uptime
         var uptime = os.uptime();
