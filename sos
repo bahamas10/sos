@@ -597,7 +597,7 @@ vasync.pipeline({arg: {}, funcs: [
         // Uname -v
         var platform = arg.uname.split('_')[1];
         s = platform.replace(/^(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z$/,
-            '$1/$2/$3 $4:$5:$6');
+            '$1-$2-$3T$4:$5:$6.000Z');
         var date = new Date(s);
         assert(isFinite(date), 'invalid date');
         o.Kernel = sprintf('%s (%s)', platform, human(date, ' old'));
