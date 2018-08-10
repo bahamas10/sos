@@ -102,6 +102,7 @@ Usage
 
     Options
       -c, --color=auto|no|yes  enable/disable color output, defaults to auto
+      -C, --main-color=blue    main color to use in output, defaults to blue
       -f, --full               additional output
       -h, --help               print this message and exit
 

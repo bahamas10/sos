@@ -50,6 +50,8 @@ Object.keys(COLORS).forEach(function (color) {
     COLORS[color] = '\x1b[' + COLORS[color] + 'm';
 });
 
+var mainColor = COLORS.blue;
+
 // Strip ansi escape characters from a string
 var _ANSI_REGEX = new RegExp([
     '[\\u001B\\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\\u0007)',
@@ -97,6 +99,7 @@ var USAGE = [
     '',
     'Options',
     '  -c, --color=auto|no|yes  enable/disable color output, defaults to auto',
+    '  -C, --main-color=blue    main color to use in output, defaults to blue',
     '  -f, --full               additional output',
     '  -h, --help               print this message and exit',
 ].join('\n');
@@ -256,10 +259,20 @@ function exec(args, cb) {
     cp.execFile(cmd, args, opts, cb);
 }
 
+/*
+ * bold and colorize output
+ */
 function boldAndColor(s) {
     assert.string(s, 's');
 
-    return COLORS.blue + COLORS.bold + s + COLORS.reset;
+    return mainColor + COLORS.bold + s + COLORS.reset;
+}
+
+/*
+ * safe hasOwnProperty
+ */
+function has(o, p) {
+    return ({}).hasOwnProperty.call(o, p);
 }
 
 vasync.pipeline({arg: {}, funcs: [
@@ -270,6 +283,7 @@ vasync.pipeline({arg: {}, funcs: [
 
         var options = [
             'c:(color)',
+            'C:(main-color)',
             'h(help)',
             'f(full)',
         ].join('');
@@ -280,6 +294,15 @@ vasync.pipeline({arg: {}, funcs: [
             switch (option.option) {
             case 'c':
                 arg.opts.color = option.optarg;
+                break;
+            case 'C':
+                var c = option.optarg;
+                if (!has(COLORS, c)) {
+                    console.error('color "%s" not found, choices are %s',
+                        c, Object.keys(COLORS));
+                    process.exit(1);
+                }
+                mainColor = COLORS[c];
                 break;
             case 'h':
                 console.log(USAGE);
@@ -577,10 +600,10 @@ vasync.pipeline({arg: {}, funcs: [
         var s = '';
 
         if (user) {
-            s += COLORS.bold + COLORS.blue + user + COLORS.reset;
+            s += COLORS.bold + mainColor + user + COLORS.reset;
             s += COLORS.bold + '@' + COLORS.reset;
         }
-        s += COLORS.bold + COLORS.blue + host + COLORS.reset;
+        s += COLORS.bold + mainColor + host + COLORS.reset;
 
         printLine(s);
 
