@@ -113,6 +113,8 @@ function disableColors() {
     LOGO = LOGO.map(function (line) {
         return stripAnsi(line);
     });
+
+    mainColor = '';
 }
 
 // Printf convenience function
