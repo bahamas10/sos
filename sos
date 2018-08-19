@@ -65,34 +65,38 @@ function stripAnsi(s) {
 }
 
 // The SmartOS logo with all of its coloring and everything
-var LOGO = [
-    '\u001b[37m\u001b[1m*\u001b[31m--\u001b[0m\u001b[31m+--\u001b[37m\u001b[1m*\u001b[0m\u001b[33m--\u001b[37m\u001b[1m*\u001b[0m    ',
-    '\u001b[31m|\u001b[1m\\\u001b[0m \u001b[31m|\u001b[0m\u001b[31m\\ |\u001b[33m\\ \u001b[1m|\\\u001b[0m   ',
-    '\u001b[31m| \u001b[1m\\\u001b[0m\u001b[31m|\u001b[0m \u001b[31m\\| \u001b[33m\\\u001b[1m| \\\u001b[0m  ',
-    '\u001b[31m+--\u001b[1m\u001b[37m*\u001b[31m--+\u001b[0m\u001b[33m--\u001b[1m\u001b[37m*\u001b[33m--\u001b[37m*\u001b[0m ',
-    '\u001b[37m|\u001b[31m\\ |\\ |\\ \u001b[33m|\u001b[1m\\ |\u001b[0m ',
-    '\u001b[37m| \u001b[31m\\| \\| \\\u001b[33m| \u001b[1m\\|\u001b[0m ',
-    '\u001b[37m\u001b[1m*\u001b[0m\u001b[37m--+\u001b[31m--+\u001b[33m--+\u001b[1m--+\u001b[0m ',
-    ' \u001b[37m\u001b[1m\\ |\u001b[0m\u001b[34m\\ |\\ |\u001b[1m\\ |\u001b[0m ',
-    '  \u001b[37m\u001b[1m\\| \u001b[0m\u001b[34m\\| \\| \u001b[1m\\|\u001b[0m ',
-    '   \u001b[37m\u001b[1m*--+\u001b[0m\u001b[34m--\u001b[37m\u001b[1m*\u001b[34m--\u001b[37m*\u001b[0m ',
-    '\u001b[37m\u001b[1mJoyent SmartOS\u001b[0m',
+var LOGOS = {};
+LOGOS.triton = [
+    '    \u001b[37m\u001b[1m*\u001b[31m--\u001b[0m\u001b[31m+--\u001b[37m\u001b[1m*\u001b[0m\u001b[33m--\u001b[37m\u001b[1m*\u001b[0m       ',
+    '    \u001b[31m|\u001b[1m\\\u001b[0m \u001b[31m|\u001b[0m\u001b[31m\\ |\u001b[33m\\ \u001b[1m|\\\u001b[0m      ',
+    '    \u001b[31m| \u001b[1m\\\u001b[0m\u001b[31m|\u001b[0m \u001b[31m\\| \u001b[33m\\\u001b[1m| \\\u001b[0m     ',
+    '    \u001b[31m+--\u001b[1m\u001b[37m*\u001b[31m--+\u001b[0m\u001b[33m--\u001b[1m\u001b[37m*\u001b[33m--\u001b[37m*\u001b[0m    ',
+    '    \u001b[37m|\u001b[31m\\ |\\ |\\ \u001b[33m|\u001b[1m\\ |\u001b[0m    ',
+    '    \u001b[37m| \u001b[31m\\| \\| \\\u001b[33m| \u001b[1m\\|\u001b[0m    ',
+    '    \u001b[37m\u001b[1m*\u001b[0m\u001b[37m--+\u001b[31m--+\u001b[33m--+\u001b[1m--+\u001b[0m    ',
+    '     \u001b[37m\u001b[1m\\ |\u001b[0m\u001b[34m\\ |\\ |\u001b[1m\\ |\u001b[0m    ',
+    '      \u001b[37m\u001b[1m\\| \u001b[0m\u001b[34m\\| \\| \u001b[1m\\|\u001b[0m    ',
+    '       \u001b[37m\u001b[1m*--+\u001b[0m\u001b[34m--\u001b[37m\u001b[1m*\u001b[34m--\u001b[37m*\u001b[0m    ',
+    '    \u001b[37m\u001b[1mJoyent SmartOS\u001b[0m   ',
 ];
-var LOGO_WIDTH = stripAnsi(LOGO[0]).length;
-
-// Ensure that each line of the logo is the same length
-LOGO.forEach(function (line, i) {
-    var len = stripAnsi(line).length;
-    assert.equal(len, LOGO_WIDTH,
-        sprintf('Logo line %d incorrect length: wanted %d found %d',
-            i,
-            LOGO_WIDTH,
-            len));
-});
+LOGOS.smartos = [
+    ' \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m ',
+      '\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m         \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m',
+      '\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m  \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m  \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m',
+      '\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m  \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m  \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m',
+      '\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m  \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m',
+      '\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m                  \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m',
+      '\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m  \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m',
+      '\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m  \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m  \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m',
+      '\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m  \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m  \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m',
+      '\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m        \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m',
+      ' \u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m\u001b[36;46m@\u001b[0m '
+];
+var LOGO, LOGO_WIDTH;
 
 // Usage message
 var USAGE = [
-    'Usage: sos [--color=auto|yes|no] [--full] [--help]',
+    'Usage: sos [--color=auto|yes|no] [-l <logo>] [--full] [--help]',
     '',
     'SOS - SmartOS Summary',
     '  Gather and display information about a SmartOS installation',
@@ -102,6 +106,7 @@ var USAGE = [
     '  -C, --main-color=blue    main color to use in output, defaults to blue',
     '  -f, --full               additional output',
     '  -h, --help               print this message and exit',
+    '  -l, --logo=name          logo name, defaults to automatic'
 ].join('\n');
 
 // Disable color output
@@ -124,8 +129,8 @@ function printf() {
 
 // Print part of the logo and some right-justified text
 var _logoIndex = 0;
-var _padLeftLogo = 4;
-var _padRightLogo = 5;
+var _padLeftLogo = 2;
+var _padRightLogo = 2;
 function printLine() {
     var line = sprintf.apply(null, arguments);
     var logo = LOGO[_logoIndex];
@@ -196,23 +201,42 @@ function human(seconds, suffix) {
 /*
  * convert bytes to kb, mb, gb, etc.
  */
-function prettybytes(bytes, num) {
-    num = num || 1024;
+function prettyBytes(bytes, scale) {
+    scale = scale || 1024;
 
-    assert.number(bytes, 'bytes');
-    assert.number(num, 'num');
+    assert.number(bytes);
+    assert(bytes >= 0, 'bytes >= 0');
+    assert.number(scale, 'scale');
+    assert(scale >= 1, 'scale >= 1');
 
-    if (Math.floor(bytes / num / num / num / num)) {
-        return util.format('%d TB', (bytes / num / num / num / num).toFixed(3));
-    } else if (Math.floor(bytes / num / num / num)) {
-        return util.format('%d GB', (bytes / num / num / num).toFixed(3));
-    } else if (Math.floor(bytes / num / num)) {
-        return util.format('%d MB', (bytes / num / num).toFixed(3));
-    } else if (Math.floor(bytes / num)) {
-        return util.format('%d KB', (bytes / num).toFixed(3));
-    } else {
-        return util.format('%d B', bytes);
+    var suffixes = [
+        ' B',
+        ' KB',
+        ' MB',
+        ' GB',
+        ' TB'
+    ];
+    var suffix, num, s;
+
+    for (var i = suffixes.length; i >= 0; i--) {
+        suffix = suffixes[i];
+        num = Math.pow(1024, i);
+        if (bytes >= num) {
+            // convert bytes to human readable string
+            s = (bytes / num).toFixed(2);
+
+            /*
+             * It can be the case that 's' has 0's that can be chopped off
+             * like "5.10" or "2.00".  To handle this, we parse the number as a
+             * float and then call toString() on the result.
+             */
+            s = parseFloat(s).toString();
+            return s + suffix;
+        }
     }
+
+    assert.equal(bytes, 0, 'bytes == 0');
+    return '0';
 }
 
 /*
@@ -288,6 +312,7 @@ vasync.pipeline({arg: {}, funcs: [
             'C:(main-color)',
             'h(help)',
             'f(full)',
+            'l:(logo)'
         ].join('');
 
         var parser = new getopt.BasicParser(options, process.argv);
@@ -312,12 +337,69 @@ vasync.pipeline({arg: {}, funcs: [
             case 'f':
                 arg.opts.full = true;
                 break;
+            case 'l':
+                LOGO = LOGOS[option.optarg];
+                if (!LOGO) {
+                    console.error('unknown logo "%s", valid options: %s',
+                        option.optarg, Object.keys(LOGOS).join(','));
+                    process.exit(1);
+                }
+                break;
             default:
                 console.error(USAGE);
                 process.exit(1);
             }
         }
+        cb();
+    },
 
+    function getBootParams(arg, cb) {
+        exec(['bootparams'], function (err, stdout) {
+            // ignore failure... this can happen in a zone
+            if (err) {
+                cb();
+                return;
+            }
+
+            var params = {};
+            stdout.trim().split('\n').forEach(function (line) {
+                line = line.trim();
+                var idx = line.indexOf('=');
+                assert(idx >= 0, 'idx >= 0');
+                var key = line.substr(0, idx);
+                var value = line.substr(idx + 1);
+
+                params[key] = value;
+            });
+
+            arg.bootparams = params;
+            cb();
+        });
+    },
+
+    function chooseLogo(arg, cb) {
+        if (!LOGO) {
+            LOGO = (arg.bootparams && arg.bootparams.smartos !== 'true')
+                ? LOGOS.triton : LOGOS.smartos;
+        }
+
+        // verify logo
+        LOGO_WIDTH = stripAnsi(LOGO[0]).length;
+
+        // Ensure that each line of the logo is the same length
+        LOGO.forEach(function (line, i) {
+            var len = stripAnsi(line).length;
+            assert.equal(len, LOGO_WIDTH,
+                sprintf('Logo line %d incorrect length: wanted %d found %d',
+                    i,
+                    LOGO_WIDTH,
+                    len));
+        });
+
+        cb();
+    },
+
+    function negotiateColors(arg, cb) {
         switch (arg.opts.color) {
             case 'yes':
                 // nothing to do
@@ -334,7 +416,6 @@ vasync.pipeline({arg: {}, funcs: [
                 console.error('unknown option for -c: "%s"', arg.opts.color);
                 process.exit(1);
         }
-
         cb();
     },
 
@@ -617,7 +698,14 @@ vasync.pipeline({arg: {}, funcs: [
         var o = {};
 
         // OS
+        var sdcVersion;
+        try {
+            sdcVersion = fs.readFileSync('/.smartdc_version', 'utf8').trim();
+        } catch (e) {}
         o.OS = sprintf('Joyent SmartOS (%s)', os.type());
+        if (sdcVersion) {
+            o.OS = sprintf('%s (sdc %s)', o.OS, sdcVersion);
+        }
 
         // Uname -v
         var platform = arg.uname.split('_')[1];
@@ -640,8 +728,8 @@ vasync.pipeline({arg: {}, funcs: [
 
         // Memory
         o.Memory = sprintf('%s / %s (%d%)',
-            prettybytes(arg.memory.rss),
-            prettybytes(arg.memory.max),
+            prettyBytes(arg.memory.rss),
+            prettyBytes(arg.memory.max),
             arg.memory.percentage.toFixed(2));
 
         // CPUs
@@ -785,8 +873,8 @@ vasync.pipeline({arg: {}, funcs: [
                 o.Vendor || '-',
                 o.Product || '-',
                 o['Serial No'] || '-',
-                prettybytes(size, 1000),
-                prettybytes(size));
+                prettyBytes(size, 1000),
+                prettyBytes(size));
         });
         console.log();
 
