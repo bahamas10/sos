@@ -27,7 +27,6 @@ var zone = require('/usr/node/node_modules/zonename');
 var COLORS = {
     reset: 0,
     bold: 1,
-    resetBold: 22,
     black: 30,
     red: 31,
     green: 32,
@@ -37,14 +36,6 @@ var COLORS = {
     cyan: 36,
     white: 37,
     grey: 90,
-    brightBlack: 90,
-    brightRed: 91,
-    brightGreen: 92,
-    brightYellow: 93,
-    brightBlue: 94,
-    brightMagenta: 95,
-    brightCyan: 96,
-    brightWhite: 97
 };
 Object.keys(COLORS).forEach(function (color) {
     COLORS[color] = '\x1b[' + COLORS[color] + 'm';
@@ -65,6 +56,9 @@ function stripAnsi(s) {
 }
 
 // The SmartOS logo with all of its coloring and everything
+// XXX maybe we should just pull these from the logos/ directory? I like the
+// idea of it all being in this script for simplicity sake but this is becoming
+// ridiculous.
 var LOGOS = {};
 LOGOS.triton = [
     '    \u001b[37m\u001b[1m*\u001b[31m--\u001b[0m\u001b[31m+--\u001b[37m\u001b[1m*\u001b[0m\u001b[33m--\u001b[37m\u001b[1m*\u001b[0m       ',
